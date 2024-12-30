@@ -89,10 +89,6 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: ${{ matrix.node-version }}
-    - name: Install build tools
-      run: |
-          apt-get update
-          apt-get install -y build-essential autoconf automake libtool
     - run: npm install --legacy-peer-deps
 
         
